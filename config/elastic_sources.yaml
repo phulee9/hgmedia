@@ -1,0 +1,34 @@
+elastic_sources:
+  - source_id: "channel_video_info"
+    source_type: "elastic"
+    connection: "elastic"
+    es_index: "channel-video-info"
+    date_field: "PublishedAt"
+    date_from: "2025-06-01"
+    page_size: 5000
+    sort_field: "YoutubeVideoId.keyword"
+    target_staging_table: "staging.channel_video_info"
+    load_mode: "truncate"
+    stream_to_staging: true
+  - source_id: "channel_video_metric"
+    source_type: "elastic"
+    connection: "elastic"
+    es_index: "channel-video-metric-*"
+    date_field: "Date"
+    date_from: "2025-06-01"
+    page_size: 5000
+    sort_field: "CompositeId.keyword"
+    target_staging_table: "staging.channel_video_metric"
+    load_mode: "truncate"
+    stream_to_staging: true
+  # - source_id: "sale"
+  #   source_type: "elastic"
+  #   connection: "elastic"
+  #   es_index: "sale"
+  #   date_field: "Date"
+  #   date_from: "2025-06-01"
+  #   page_size: 5000
+  #   sort_field: "_id"
+  #   target_staging_table: "staging.sale"
+  #   load_mode: "truncate"
+  #   stream_to_staging: true

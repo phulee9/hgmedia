@@ -1,0 +1,67 @@
+# =============================================================================
+# GOOGLE SHEET SOURCES — CONFIG MẪU (placeholder, thay spreadsheet_id thật khi triển khai)
+# =============================================================================
+google_sheet_sources:
+
+  - source_id: "partners"
+    source_type: "google_sheet"
+    description: "Danh mục đối tác (Thông tin các kho nhạc BD)"
+    spreadsheet_id: "14160tb_UrXT4LzkjYpPyQ_qp6f72jqc-UEWq5Ghu0sA"
+    worksheet_name: "Thông tin các kho nhạc BD"
+    header_row: 2
+    data_start_row: 3
+    target_staging_table: "staging.partners"
+    load_mode: "truncate"
+    # KHÔNG field_mapping -> staging full cột
+
+  - source_id: "purchased_resource"
+    source_type: "google_sheet"
+    folder_id: "1y8Rb5vnMw9WMYR0XlXTrheS3j7BbCn7h"
+    worksheet_name: null
+    header_row: 1
+    data_start_row: 4
+    target_staging_table: "staging.purchased_resource"
+    load_mode: "truncate"
+    # _source_file (tên file/tên sheet dùng để suy ra Repository) được model dbt xử lý ở lớp silver,
+    # không xử lý ở Extractor để giữ Extract đơn giản/generic.
+
+
+# link https://docs.google.com/spreadsheets/d/14160tb_UrXT4LzkjYpPyQ_qp6f72jqc-UEWq5Ghu0sA/edit?pli=1&gid=0#gid=0
+  - source_id: "purchase_cost"
+    source_type: "google_sheet"
+    spreadsheet_id: "14160tb_UrXT4LzkjYpPyQ_qp6f72jqc-UEWq5Ghu0sA"
+    worksheet_pattern: "Theo dõi CP thực (Kế toán)"   # tab nào chứa chuỗi này đều lấy
+    header_row: 3
+    data_start_row: 4
+    columns:
+      - "Tên đối tác"
+      - "Dòng nhạc"
+      - "Team sử dụng"
+      - "Số bài hát"
+      - "Đơn vị tiền tệ"
+      - "CP tháng 1"
+      - "CP tháng 2"
+      - "CP tháng 3"
+      - "CP tháng 4"
+      - "CP tháng 5"
+      - "CP tháng 6"
+      - "CP tháng 7"
+      - "CP tháng 8"
+      - "CP tháng 9"
+      - "CP tháng 10"
+      - "CP tháng 11"
+      - "CP tháng 12"
+      - "Total năm"
+    target_staging_table: "staging.purchase_cost"
+    load_mode: "truncate"
+
+  - source_id: "resource_before_odoo"
+    source_type: "google_sheet"
+    description: "Dữ liệu lịch sử tài nguyên trước Odoo (sheet INDA)"
+    spreadsheet_id: "1uHGD8iXwetIRNwRUUD68TqdrLcTGG1eJzHjCtg3wVak"
+    worksheet_name: "Trang tính1"
+    header_row: 1
+    data_start_row: 2
+    target_staging_table: "staging.resource_before_odoo"
+    load_mode: "truncate"
+    # KHÔNG field_mapping -> staging giữ full cột

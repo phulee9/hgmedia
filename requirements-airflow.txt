@@ -1,0 +1,5 @@
+apache-airflow>=2.9
+apache-airflow-providers-postgres
+apache-airflow-providers-microsoft-mssql
+dbt-postgres>=1.7
+astronomer-cosmos>=1.5

@@ -1,0 +1,115 @@
+version: 2
+
+models:
+  - name: dim_isrc
+    columns:
+      - name: dim_isrc_sk
+        tests: [unique, not_null]
+  - name: dim_ar
+    columns:
+      - name: dim_ar_sk
+        tests: [unique, not_null]
+  - name: dim_company_stock
+    columns:
+      - name: dim_company_stock_sk
+        tests: [unique, not_null]
+  - name: dim_subproject_stock
+    columns:
+      - name: dim_subproject_stock_sk
+        tests: [unique, not_null]
+  - name: dim_project_stock
+    columns:
+      - name: dim_project_stock_sk
+        tests: [unique, not_null]
+  - name: fact_distribution
+    columns:
+      - name: fact_distribution_sk
+        tests: [unique, not_null]
+  - name: dim_company
+    columns:
+      - name: dim_company_sk
+        tests: [unique, not_null]
+  - name: dim_distributed_employee
+    columns:
+      - name: dim_distributed_employee_sk
+        tests: [unique, not_null]
+  - name: dim_net
+    columns:
+      - name: dim_net_sk
+        tests: [unique, not_null]
+  - name: dim_artist
+    columns:
+      - name: dim_artist_sk
+        tests: [unique, not_null]
+  - name: dim_department
+    columns:
+      - name: dim_department_sk
+        tests: [unique, not_null]
+  - name: dim_order_employee
+    columns:
+      - name: dim_order_employee_sk
+        tests: [unique, not_null]
+  - name: dim_project
+    columns:
+      - name: dim_project_sk
+        tests: [unique, not_null]
+  - name: dim_sub_project
+    columns:
+      - name: dim_sub_project_sk
+        tests: [unique, not_null]
+  - name: dim_repository
+    columns:
+      - name: dim_repository_sk
+        tests: [unique, not_null]
+  - name: dim_resource
+    columns:
+      - name: dim_resource_sk
+        tests: [unique, not_null]
+  - name: dim_channel
+    columns:
+      - name: dim_channel_sk
+        tests: [unique, not_null]
+  - name: dim_stock
+    columns:
+      - name: dim_stock_sk
+        tests: [unique, not_null]
+  - name: dim_po
+    columns:
+      - name: dim_po_sk
+        tests: [unique, not_null]
+  - name: fact_po_detail
+    columns:
+      - name: fact_po_detail_sk
+        tests: [unique, not_null]
+  - name: dim_so
+    columns:
+      - name: dim_so_sk
+        tests: [unique, not_null]
+  - name: fact_so_detail
+    columns:
+      - name: fact_so_detail_sk
+        tests: [unique, not_null]
+  - name: dim_khsx
+    columns:
+      - name: dim_khsx_sk
+        tests: [unique, not_null]
+  - name: fact_khsx_detail
+    columns:
+      - name: fact_khsx_detail_sk
+        tests: [unique, not_null]
+  - name: fact_artist_assignment
+    columns:
+      - name: fact_artist_assignment_sk
+        tests: [unique, not_null]
+  - name: fact_label_operation
+    columns:
+      - name: fact_label_operation_sk
+        tests: [unique, not_null]
+  - name: fact_youtube_operation
+    columns:
+      - name: fact_youtube_operation_sk
+        tests: [unique, not_null]
+  - name: fact_editing
+    columns:
+      - name: fact_editing_sk
+        tests: [unique, not_null]
