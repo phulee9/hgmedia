@@ -1,0 +1,182 @@
+# Local/offline reconstruction overlay.
+# Usage:
+#   cp .env.rebuild.example .env
+#   docker compose -f docker-compose.yml -f docker-compose.rebuild.yml up -d dwh-postgres source-postgres source-mssql minio
+#   docker compose -f docker-compose.yml -f docker-compose.rebuild.yml run --rm source-bootstrap
+#   docker compose -f docker-compose.yml -f docker-compose.rebuild.yml up -d
+#
+# Source-system simulation model:
+# - PostgreSQL/SQL Server replicas run only with disposable sample data.
+# - Runtime clients never use the replica container IPs as source endpoints.
+# - Each logical source is exposed through a distinct fake 127.20.0.x IP/port
+#   inside the client container and forwarded by socat to the local replicas.
+# - host.docker.internal is only plumbing behind the fake endpoints, required
+#   because direct container bridge TCP is unreliable in GitHub Codespaces.
+#
+# Airflow runtime note:
+# - scripts/docker-entrypoint.sh computes AIRFLOW__DATABASE__SQL_ALCHEMY_CONN for
+#   the main Airflow process with URL encoding.
+# - docker compose exec starts a new process from the container's configured
+#   environment, so it does not inherit variables exported only by PID 1.
+# - The local rebuild credentials are URL-safe; expose the connection URI here
+#   as container configuration so Airflow CLI commands executed with `exec`
+#   use the same PostgreSQL metadata DB instead of falling back to SQLite.
+# - GitHub Codespaces in this rebuild has shown unreliable sibling-container TCP
+#   and unreliable container-to-host published-port hairpinning. LocalExecutor
+#   workers run inside the scheduler container, so the rebuild scheduler starts
+#   a second Airflow API server bound only to 127.0.0.1:8082. Task SDK execution
+#   callbacks stay inside that container and bypass both broken network paths.
+#   The normal UI/API server on published port 8081 remains unchanged.
+
+x-local-airflow-db-env: &local-airflow-db-env
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://${AIRFLOW_DB_USER:-hgdev}:${AIRFLOW_DB_PASSWORD:-local-dwh-change-me}@${AIRFLOW_DB_HOST:-host.docker.internal}:${AIRFLOW_DB_PORT:-55432}/${AIRFLOW_DB_NAME:-airflow}"
+
+services:
+  dwh-postgres:
+    image: postgres:17
+    container_name: hg_rebuild_dwh_postgres
+    command: ["postgres", "-c", "listen_addresses=*"]
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${DWH_PG_USER:-hgdev}
+      POSTGRES_PASSWORD: ${DWH_PG_PASSWORD:-local-dwh-change-me}
+    ports:
+      - "${LOCAL_DWH_PG_EXPOSE_PORT:-55432}:5432"
+    volumes:
+      - rebuild_dwh_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U ${DWH_PG_USER:-hgdev} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  source-postgres:
+    image: postgres:17
+    container_name: hg_rebuild_source_postgres
+    command: ["postgres", "-c", "listen_addresses=*"]
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${SOURCE_PG_ADMIN_USER:-hgsource}
+      POSTGRES_PASSWORD: ${SOURCE_PG_ADMIN_PASSWORD:-local-source-pg-change-me}
+    ports:
+      - "${LOCAL_SOURCE_PG_EXPOSE_PORT:-5433}:5432"
+    volumes:
+      - rebuild_source_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U ${SOURCE_PG_ADMIN_USER:-hgsource} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  source-mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: hg_rebuild_source_mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${SOURCE_MSSQL_SA_PASSWORD:-Local-Mssql-Change-Me-2026!}
+    ports:
+      - "${LOCAL_SOURCE_MSSQL_EXPOSE_PORT:-1434}:1433"
+    volumes:
+      - rebuild_source_mssql_data:/var/opt/mssql
+    restart: unless-stopped
+
+  source-bootstrap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dwh-airflow:3.2.1
+    container_name: hg_rebuild_source_bootstrap
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /opt/airflow/project
+      LOCAL_SOURCE_PROXY_MODE: "true"
+      SOURCE_PROXY_PG_BACKEND_HOST: host.docker.internal
+      SOURCE_PROXY_PG_BACKEND_PORT: ${LOCAL_SOURCE_PG_EXPOSE_PORT:-5433}
+      SOURCE_PROXY_MSSQL_BACKEND_HOST: host.docker.internal
+      SOURCE_PROXY_MSSQL_BACKEND_PORT: ${LOCAL_SOURCE_MSSQL_EXPOSE_PORT:-1434}
+      # Bootstrap itself also goes through fake source endpoints.
+      SOURCE_PG_ADMIN_HOST: 127.20.0.11
+      SOURCE_PG_ADMIN_PORT: "5432"
+      SOURCE_MSSQL_ADMIN_HOST: 127.20.0.21
+      SOURCE_MSSQL_ADMIN_PORT: "1433"
+      SOURCE_MSSQL_ADMIN_USER: sa
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./:/opt/airflow/project
+    depends_on:
+      source-postgres:
+        condition: service_healthy
+      source-mssql:
+        condition: service_started
+    entrypoint: ["/usr/bin/dumb-init", "--"]
+    command:
+      - bash
+      - -lc
+      - |
+        set -euo pipefail
+        bash /opt/airflow/project/scripts/start_fake_source_proxies.sh
+        python /opt/airflow/project/scripts/bootstrap_source_replicas.py --seed
+        python /opt/airflow/project/scripts/apply_local_source_compat.py
+        exec python /opt/airflow/project/scripts/apply_local_relational_fixtures.py
+    restart: "no"
+
+  airflow-init:
+    environment:
+      <<: *local-airflow-db-env
+
+  airflow-api-server:
+    environment:
+      <<: *local-airflow-db-env
+
+  airflow-scheduler:
+    environment:
+      <<: *local-airflow-db-env
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: "http://127.0.0.1:8082/execution/"
+    command:
+      - bash
+      - -lc
+      - |
+        set -euo pipefail
+        airflow api-server -H 127.0.0.1 -p 8082 >/tmp/airflow-local-execution-api.log 2>&1 &
+        api_pid=$$!
+
+        ready=0
+        for attempt in $$(seq 1 60); do
+          if curl -fsS --noproxy '*' http://127.0.0.1:8082/api/v2/monitor/health >/dev/null 2>&1; then
+            ready=1
+            break
+          fi
+          if ! kill -0 "$$api_pid" 2>/dev/null; then
+            echo "ERROR: local Airflow Execution API exited during startup" >&2
+            cat /tmp/airflow-local-execution-api.log >&2 || true
+            exit 1
+          fi
+          sleep 1
+        done
+
+        if [ "$$ready" -ne 1 ]; then
+          echo "ERROR: local Airflow Execution API did not become ready on 127.0.0.1:8082" >&2
+          cat /tmp/airflow-local-execution-api.log >&2 || true
+          exit 1
+        fi
+
+        echo "Local Airflow Execution API ready at http://127.0.0.1:8082/execution/"
+        exec airflow scheduler
+
+  airflow-dag-processor:
+    environment:
+      <<: *local-airflow-db-env
+
+  airflow-triggerer:
+    environment:
+      <<: *local-airflow-db-env
+
+volumes:
+  rebuild_dwh_pg_data:
+  rebuild_source_pg_data:
+  rebuild_source_mssql_data:

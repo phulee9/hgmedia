@@ -1,3 +1,9 @@
+{{ config(
+    materialized='incremental',
+    unique_key='fact_label_operation_sk',
+    incremental_strategy='delete+insert'
+) }}
+
 with base as (
     select *
     from {{ source('staging', 'x_music_song') }}
@@ -18,4 +24,4 @@ left join {{ source('staging', 'x_acceptance_cert') }} ac
     on cast(b.purchase_order_id as bigint) = cast(ac.purchase_order_id as bigint)
 order by
     b.isrc,
-    b.id asc;
+    b.id asc

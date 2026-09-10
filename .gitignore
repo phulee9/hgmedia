@@ -49,6 +49,10 @@ config/gsheet_service_account.json
 .env.*
 !.env.example
 
+# Local source dictionary input. Generated DDL may be versioned, but the
+# original project workbook stays outside Git history.
+source_replicas/input/
+
 # ==========================
 # Data
 # ==========================
@@ -62,7 +66,8 @@ data/fact_view_stream.csv
 *.log
 *.tmp
 *.bak.env
-*.pycoutputs/
+*.pyc
+outputs/
 
 # Generated outputs
 outputs/
@@ -81,3 +86,4 @@ dwh_dbt/logs/
 dbt_packages/
 
 !.env.example
+!.env.rebuild.example
